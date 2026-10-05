@@ -45,12 +45,17 @@ import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Hitsplat;
+import net.runelite.api.NPC;
 import net.runelite.api.Player;
+import net.runelite.api.Skill;
 import net.runelite.api.events.AnimationChanged;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.GraphicChanged;
 import net.runelite.api.events.HitsplatApplied;
+import net.runelite.api.events.NpcDespawned;
+import net.runelite.api.events.NpcSpawned;
+import net.runelite.api.events.StatChanged;
 import net.runelite.api.gameval.SpotanimID;
 import net.runelite.api.gameval.SpriteID;
 import net.runelite.client.audio.AudioPlayer;
@@ -85,6 +90,8 @@ import net.runelite.client.util.ImageUtil;
  * <li>Burn damage is its own BURN type, not "mine", so it never counts.</li>
  * <li>A splashed spell shows no hitsplat at all, only spot animation 85 (FAILEDSPELL_IMPACT)
  * on the target, in the same tick the player's cast animation starts.</li>
+ * <li>Thrall hits are "mine" hitsplats too; {@link ThrallWatcher} predicts them so they can be
+ * left out (setting "Ignore thralls", on by default).</li>
  * </ul>
  * Data is stored locally, one JSON file per character. Nothing is sent anywhere.
  */
@@ -149,6 +156,13 @@ public class ZeroCounterPlugin extends Plugin implements AttackTracker.Listener
 	private boolean panelStale;
 
 	private final AttackTracker tracker = new AttackTracker(this);
+	private final ThrallWatcher thralls = new ThrallWatcher();
+
+	/** Last Hitpoints XP seen, to notice when it goes up (the player's attack did damage). */
+	private int hitpointsXp = -1;
+	/** Target of the player's last own hitsplat: the thrall attacks what the player attacks. */
+	@Nullable
+	private Actor lastHitTarget;
 
 	@Nullable
 	private StreakInfoBox streakBox;
@@ -231,6 +245,9 @@ public class ZeroCounterPlugin extends Plugin implements AttackTracker.Listener
 			navButton = null;
 		}
 		tracker.clear();
+		thralls.reset();
+		hitpointsXp = -1;
+		lastHitTarget = null;
 		data = null;
 		tally = null;
 		accountHash = -1;
@@ -246,6 +263,9 @@ public class ZeroCounterPlugin extends Plugin implements AttackTracker.Listener
 		{
 			save();
 			tracker.clear();
+			thralls.reset();
+				hitpointsXp = -1;
+			lastHitTarget = null;
 			data = null;
 			tally = null;
 			accountHash = -1;
@@ -312,6 +332,7 @@ public class ZeroCounterPlugin extends Plugin implements AttackTracker.Listener
 	public void onGameTick(GameTick event)
 	{
 		int tick = client.getTickCount();
+		thralls.tick(tick, tracker::hitsplat);
 		tracker.tick(tick);
 		rollDay();
 		if (dirty && tick - lastSaveTick >= SAVE_EVERY_TICKS)
@@ -360,16 +381,54 @@ public class ZeroCounterPlugin extends Plugin implements AttackTracker.Listener
 		{
 			return; // hits on the player, or someone else's / non-player damage (burn, poison)
 		}
-		tracker.hitsplat(target, client.getTickCount(), hitsplat.getAmount());
+		int tick = client.getTickCount();
+		lastHitTarget = target;
+		thralls.hitsplat(target, tick, hitsplat.getAmount(), config.ignoreThralls(), tracker::hitsplat);
+	}
+
+	@Subscribe
+	public void onStatChanged(StatChanged event)
+	{
+		if (event.getSkill() != Skill.HITPOINTS)
+		{
+			return;
+		}
+		int xp = event.getXp();
+		if (hitpointsXp >= 0 && xp > hitpointsXp)
+		{
+			thralls.hitpointsXp(client.getTickCount());
+		}
+		hitpointsXp = xp;
+	}
+
+	@Subscribe
+	public void onNpcSpawned(NpcSpawned event)
+	{
+		NPC npc = event.getNpc();
+		thralls.npcSpawned(npc.getIndex(), npc.getId(), client.getTickCount());
+	}
+
+	@Subscribe
+	public void onNpcDespawned(NpcDespawned event)
+	{
+		thralls.npcDespawned(event.getNpc().getIndex());
 	}
 
 	@Subscribe
 	public void onAnimationChanged(AnimationChanged event)
 	{
 		Player me = client.getLocalPlayer();
-		if (me != null && event.getActor() == me && me.getAnimation() != -1)
+		Actor actor = event.getActor();
+		int tick = client.getTickCount();
+		if (actor instanceof NPC)
 		{
-			lastAnimationTick = client.getTickCount();
+			thralls.npcAnimation(((NPC) actor).getIndex(), actor.getAnimation(), tick);
+			return;
+		}
+		if (me != null && actor == me && me.getAnimation() != -1)
+		{
+			lastAnimationTick = tick;
+			thralls.playerAnimation(me.getAnimation(), tick);
 		}
 	}
 
@@ -380,6 +439,13 @@ public class ZeroCounterPlugin extends Plugin implements AttackTracker.Listener
 		Player me = client.getLocalPlayer();
 		Actor actor = event.getActor();
 		int tick = client.getTickCount();
+		// The ghostly thrall's first attack shows only as this impact; other players' ghosts make
+		// it too, so only the impact on the player's own target counts
+		if (actor instanceof NPC && me != null && (actor == me.getInteracting() || actor == lastHitTarget)
+			&& actor.hasSpotAnim(ThrallWatcher.GHOST_IMPACT))
+		{
+			thralls.ghostImpact(tick);
+		}
 		if (me == null || actor == null || actor == me || actor != me.getInteracting()
 			|| lastAnimationTick != tick || lastSplashTick == tick
 			|| !actor.hasSpotAnim(SpotanimID.FAILEDSPELL_IMPACT))

@@ -72,6 +72,18 @@ public interface ZeroCounterConfig extends Config
 	)
 	String ACCURACY = "accuracy";
 
+	@ConfigItem(
+		keyName = "ignoreThralls",
+		name = "Ignore thralls",
+		description = "Your Arceuus thrall's hits show up as your own hitsplats. With this on they are never"
+			+ " counted as your attacks, so they cannot break a streak or change your accuracy",
+		position = -1
+	)
+	default boolean ignoreThralls()
+	{
+		return true;
+	}
+
 	// ------------------------------------------------------------------ streak box
 
 	@ConfigItem(

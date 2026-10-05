@@ -6,7 +6,8 @@ pick: three angry voices come with the plugin, or use your own .wav files.
 
 The side panel keeps your accuracy for the session, today and in total, your best streak, and
 your zeros day by day for any date range. A special attack or a scythe swing counts as one
-attack, a splashed spell counts as a zero, and burn, poison or other players' hits never count.
+attack, a splashed spell counts as a zero, and burn, poison, your thrall or other players' hits
+never count.
 
 ## The streak box
 
@@ -18,6 +19,10 @@ hit. Hover it to see your best streak.
 scythe swing is one attack: it is a zero only if none of its hits did damage. A splashed
 spell counts as a zero. Damage over time (burn, poison, venom) and other players' hits are
 never counted.
+
+**Thralls.** Your Arceuus thrall's hits look like your own in the game. With *Ignore thralls*
+(on by default) they are left out, so a thrall hit never breaks your streak or changes your
+accuracy. Turn it off to count them as before.
 
 ## Sounds
 

@@ -91,7 +91,8 @@ class AttackTracker
 			}
 			return;
 		}
-		attack.lastTick = tick;
+		// Max: a hit held back for a thrall check can arrive after a later one
+		attack.lastTick = Math.max(attack.lastTick, tick);
 		if (amount > 0 && !attack.damaged)
 		{
 			attack.damaged = true;
