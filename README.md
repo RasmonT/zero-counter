@@ -74,5 +74,5 @@ no network requests.
 ## Support
 
 Questions, ideas or a bug? Join the [Discord](https://discord.gg/XgxjhyznbZ) or open an issue
-on GitHub. The side panel has a Discord link as well; it only opens your browser when you click
-it.
+on GitHub. The side panel has a *Join the Discord* button as well; it only opens your browser
+when you click it.

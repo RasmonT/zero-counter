@@ -48,6 +48,7 @@ import net.runelite.api.Hitsplat;
 import net.runelite.api.NPC;
 import net.runelite.api.Player;
 import net.runelite.api.Skill;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.AnimationChanged;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
@@ -58,6 +59,7 @@ import net.runelite.api.events.NpcSpawned;
 import net.runelite.api.events.StatChanged;
 import net.runelite.api.gameval.SpotanimID;
 import net.runelite.api.gameval.SpriteID;
+import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.audio.AudioPlayer;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.chat.ChatMessageManager;
@@ -157,6 +159,8 @@ public class ZeroCounterPlugin extends Plugin implements AttackTracker.Listener
 
 	private final AttackTracker tracker = new AttackTracker(this);
 	private final ThrallWatcher thralls = new ThrallWatcher();
+	/** A thrall follows its owner, so the player's own is at most this far away. */
+	private static final int THRALL_SEARCH_TILES = 8;
 
 	/** Last Hitpoints XP seen, to notice when it goes up (the player's attack did damage). */
 	private int hitpointsXp = -1;
@@ -264,7 +268,7 @@ public class ZeroCounterPlugin extends Plugin implements AttackTracker.Listener
 			save();
 			tracker.clear();
 			thralls.reset();
-				hitpointsXp = -1;
+			hitpointsXp = -1;
 			lastHitTarget = null;
 			data = null;
 			tally = null;
@@ -332,8 +336,10 @@ public class ZeroCounterPlugin extends Plugin implements AttackTracker.Listener
 	public void onGameTick(GameTick event)
 	{
 		int tick = client.getTickCount();
+		findThrall();
 		thralls.tick(tick, tracker::hitsplat);
-		tracker.tick(tick);
+		// Hitsplats can reach the tracker up to HOLD_TICKS late, so it forgets attacks that much later
+		tracker.tick(tick - ThrallWatcher.HOLD_TICKS);
 		rollDay();
 		if (dirty && tick - lastSaveTick >= SAVE_EVERY_TICKS)
 		{
@@ -342,6 +348,41 @@ public class ZeroCounterPlugin extends Plugin implements AttackTracker.Listener
 		if (panelStale)
 		{
 			publish();
+		}
+	}
+
+	/**
+	 * When the game says the player has a thrall but its spawn was not seen next to the cast
+	 * (thrall already out when the plugin started, spawned again after a teleport), takes the
+	 * thrall nearest to the player.
+	 */
+	private void findThrall()
+	{
+		thralls.setActive(client.getVarbitValue(VarbitID.ARCEUUS_RESURRECTION_ACTIVE) != 0);
+		Player me = client.getLocalPlayer();
+		if (!thralls.needsThrall() || me == null)
+		{
+			return;
+		}
+		WorldPoint here = me.getWorldLocation();
+		NPC nearest = null;
+		int best = THRALL_SEARCH_TILES + 1;
+		for (NPC npc : client.getTopLevelWorldView().npcs())
+		{
+			if (!ThrallWatcher.THRALLS.contains(npc.getId()))
+			{
+				continue;
+			}
+			int d = npc.getWorldLocation().distanceTo(here);
+			if (d < best)
+			{
+				best = d;
+				nearest = npc;
+			}
+		}
+		if (nearest != null)
+		{
+			thralls.adopt(nearest.getIndex(), nearest.getId(), client.getTickCount());
 		}
 	}
 

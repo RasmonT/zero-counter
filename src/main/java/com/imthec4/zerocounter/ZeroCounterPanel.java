@@ -66,7 +66,9 @@ class ZeroCounterPanel extends PluginPanel
 	private static final Color ERROR = new Color(0xE57373);
 	private static final Color GOOD = new Color(0x4CAF50);
 	private static final Color BLUE = new Color(0x6E8CFF);
-	private static final Color LINK = new Color(0x8C9EFF);
+	/** Discord's brand colour and its darker hover shade, so the button reads as Discord at a glance. */
+	private static final Color DISCORD = new Color(0x5865F2);
+	private static final Color DISCORD_HOVER = new Color(0x4752C4);
 	/** Support server for ImTheC4's plugins. Only opened when the player clicks the link. */
 	static final String DISCORD_URL = "https://discord.gg/XgxjhyznbZ";
 	private static final Color BACKGROUND = ColorScheme.DARK_GRAY_COLOR;
@@ -218,11 +220,15 @@ class ZeroCounterPanel extends PluginPanel
 			}
 		});
 
-		JLabel discord = new JLabel("Discord: questions, ideas, bugs", SwingConstants.CENTER);
-		discord.setFont(FontManager.getRunescapeSmallFont());
-		discord.setForeground(LINK);
+		// Opens the browser only when clicked; the plugin itself never contacts Discord
+		JLabel discord = new JLabel("Join the Discord", SwingConstants.CENTER);
+		discord.setOpaque(true);
+		discord.setBackground(DISCORD);
+		discord.setForeground(Color.WHITE);
+		discord.setFont(FontManager.getRunescapeBoldFont());
+		discord.setBorder(new EmptyBorder(7, 0, 7, 0));
 		discord.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		discord.setToolTipText("Opens " + DISCORD_URL + " in your browser");
+		discord.setToolTipText("Questions, ideas or a bug? Opens " + DISCORD_URL + " in your browser");
 		discord.addMouseListener(new MouseAdapter()
 		{
 			@Override
@@ -234,13 +240,13 @@ class ZeroCounterPanel extends PluginPanel
 			@Override
 			public void mouseEntered(MouseEvent e)
 			{
-				discord.setForeground(Color.WHITE);
+				discord.setBackground(DISCORD_HOVER);
 			}
 
 			@Override
 			public void mouseExited(MouseEvent e)
 			{
-				discord.setForeground(LINK);
+				discord.setBackground(DISCORD);
 			}
 		});
 
