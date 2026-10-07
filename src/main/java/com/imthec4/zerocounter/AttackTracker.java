@@ -32,11 +32,15 @@ import java.util.Map;
 /**
  * Turns the player's hitsplats into attacks. One attack can show several hitsplats: a dragon
  * dagger special lands on two consecutive ticks, burning claws on two, a scythe several on the
- * same tick. Hitsplats on the same target that follow each other within {@link #MERGE_TICKS}
- * belong to one attack, and the attack is a zero only if all of them were 0.
+ * same tick, and a crystal halberd special shows a 0 in the tick of its animation and its two
+ * hits one tick later. Hitsplats on the same target that follow each other within
+ * {@link #MERGE_TICKS} belong to one attack, and the attack is a zero only if all of them were 0.
  *
- * A zero is reported at once, so the streak box reacts without delay. If a later hitsplat of
- * the same attack does damage, the zero is taken back with {@link Listener#zeroWasHit()}.
+ * Attacks are reported from {@link #tick}, at the end of each game tick: a hit as soon as any
+ * of its hitsplats did damage, a zero only once no more hitsplats can join it, one tick after
+ * its last 0. So a zero shows 0.6 s after its hitsplat and is never taken back by a later hit of
+ * the same attack. {@link Listener#zeroWasHit()} remains for the one case left: a hitsplat
+ * handed in late (held back for a thrall check) that joins an attack already reported as a zero.
  */
 class AttackTracker
 {
@@ -49,7 +53,7 @@ class AttackTracker
 
 		void hit();
 
-		/** The zero reported last for this attack turned out to do damage after all. */
+		/** The zero reported for this attack turned out to do damage after all. */
 		void zeroWasHit();
 	}
 
@@ -57,6 +61,7 @@ class AttackTracker
 	{
 		int lastTick;
 		boolean damaged;
+		boolean reported;
 	}
 
 	private final Listener listener;
@@ -81,14 +86,6 @@ class AttackTracker
 			attack.lastTick = tick;
 			attack.damaged = amount > 0;
 			open.put(target, attack);
-			if (attack.damaged)
-			{
-				listener.hit();
-			}
-			else
-			{
-				listener.zero();
-			}
 			return;
 		}
 		// Max: a hit held back for a thrall check can arrive after a later one
@@ -96,7 +93,10 @@ class AttackTracker
 		if (amount > 0 && !attack.damaged)
 		{
 			attack.damaged = true;
-			listener.zeroWasHit();
+			if (attack.reported)
+			{
+				listener.zeroWasHit();
+			}
 		}
 	}
 
@@ -106,12 +106,38 @@ class AttackTracker
 		listener.zero();
 	}
 
-	/** Forgets attacks that can no longer get another hitsplat. */
+	/**
+	 * Called on each game tick after its hitsplats: reports the attacks that are decided. A hit
+	 * is decided by its first damage, a zero once {@link #MERGE_TICKS} have passed with no more.
+	 */
 	void tick(int tick)
+	{
+		for (Attack attack : open.values())
+		{
+			if (attack.reported)
+			{
+				continue;
+			}
+			if (attack.damaged)
+			{
+				attack.reported = true;
+				listener.hit();
+			}
+			else if (tick - attack.lastTick >= MERGE_TICKS)
+			{
+				attack.reported = true;
+				listener.zero();
+			}
+		}
+	}
+
+	/** Forgets attacks that can no longer get another hitsplat, as of {@code tick}. */
+	void expire(int tick)
 	{
 		for (Iterator<Attack> it = open.values().iterator(); it.hasNext(); )
 		{
-			if (tick - it.next().lastTick > MERGE_TICKS)
+			Attack attack = it.next();
+			if (attack.reported && tick - attack.lastTick > MERGE_TICKS)
 			{
 				it.remove();
 			}

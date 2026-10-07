@@ -15,9 +15,11 @@ The box appears with your first zero and counts every zero in a row. It disappea
 attack that does damage. Turn on *Always show* to keep it on screen; it then shows 0 after a
 hit. Hover it to see your best streak.
 
-**One attack, one count.** A special attack with several hits (dragon dagger, claws) or a
-scythe swing is one attack: it is a zero only if none of its hits did damage. A splashed
-spell counts as a zero. Damage over time (burn, poison, venom) and other players' hits are
+**One attack, one count.** A special attack with several hits (dragon dagger, claws, crystal
+halberd) or a scythe swing is one attack: it is a zero only if none of its hits did damage. A
+hit counts the moment its damage shows; a zero counts one game tick (0.6 s) after its hitsplat,
+once nothing more can join that attack, so a 0 followed by damage a tick later is a hit and
+never a zero. A splashed spell counts as a zero. Damage over time (burn, poison, venom) and other players' hits are
 never counted.
 
 **Thralls.** Your Arceuus thrall's hits look like your own in the game. With *Ignore thralls*

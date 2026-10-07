@@ -87,8 +87,9 @@ import net.runelite.client.util.ImageUtil;
  * <li>The player's own hitsplats are the "mine" types; a zero is BLOCK_ME with amount 0. Hits
  * the player takes are "mine" types too, so hitsplats on the player are always ignored.</li>
  * <li>A dragon dagger special shows its two hitsplats on two consecutive ticks, burning claws
- * three over two ticks. Hitsplats within one tick of each other are one attack
- * ({@link AttackTracker}).</li>
+ * three over two ticks, a crystal halberd special a 0 in the tick of its animation and its hits
+ * one tick later. Hitsplats within one tick of each other are one attack ({@link AttackTracker}),
+ * so a zero is counted one tick after its hitsplat, once nothing more can join it.</li>
  * <li>Burn damage is its own BURN type, not "mine", so it never counts.</li>
  * <li>A splashed spell shows no hitsplat at all, only spot animation 85 (FAILEDSPELL_IMPACT)
  * on the target, in the same tick the player's cast animation starts.</li>
@@ -338,8 +339,9 @@ public class ZeroCounterPlugin extends Plugin implements AttackTracker.Listener
 		int tick = client.getTickCount();
 		findThrall();
 		thralls.tick(tick, tracker::hitsplat);
+		tracker.tick(tick);
 		// Hitsplats can reach the tracker up to HOLD_TICKS late, so it forgets attacks that much later
-		tracker.tick(tick - ThrallWatcher.HOLD_TICKS);
+		tracker.expire(tick - ThrallWatcher.HOLD_TICKS);
 		rollDay();
 		if (dirty && tick - lastSaveTick >= SAVE_EVERY_TICKS)
 		{
