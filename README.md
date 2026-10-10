@@ -26,6 +26,10 @@ never counted.
 (on by default) they are left out, so a thrall hit never breaks your streak or changes your
 accuracy. Turn it off to count them as before.
 
+**Sailing.** Nothing is counted while you are on a boat. When a sea creature misses your boat,
+the game shows that 0 exactly like one of your own zeros, so your streak filled up with zeros
+you never made. Counting starts again as soon as you step off the boat.
+
 ## Sounds
 
 *Streak sounds* takes a list of `streak=sound`, separated by commas:

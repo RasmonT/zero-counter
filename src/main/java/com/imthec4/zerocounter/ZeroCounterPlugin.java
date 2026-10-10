@@ -48,6 +48,7 @@ import net.runelite.api.Hitsplat;
 import net.runelite.api.NPC;
 import net.runelite.api.Player;
 import net.runelite.api.Skill;
+import net.runelite.api.WorldView;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.AnimationChanged;
 import net.runelite.api.events.GameStateChanged;
@@ -95,6 +96,10 @@ import net.runelite.client.util.ImageUtil;
  * on the target, in the same tick the player's cast animation starts.</li>
  * <li>Thrall hits are "mine" hitsplats too; {@link ThrallWatcher} predicts them so they can be
  * left out (setting "Ignore thralls", on by default).</li>
+ * <li>On a boat (Sailing) the boat itself is an NPC with no name (15187 in the capture). A sea
+ * creature's miss on it shows as BLOCK_ME 0, exactly like the player's own zero, while its
+ * hits on the boat are type 79, not "mine". Nothing is counted while the player stands on a
+ * boat: the player is then in the boat's own world view, not the top-level one.</li>
  * </ul>
  * Data is stored locally, one JSON file per character. Nothing is sent anywhere.
  */
@@ -424,6 +429,10 @@ public class ZeroCounterPlugin extends Plugin implements AttackTracker.Listener
 		{
 			return; // hits on the player, or someone else's / non-player damage (burn, poison)
 		}
+		if (onBoat())
+		{
+			return; // Sailing: a sea creature's miss on the player's boat looks like the player's zero
+		}
 		int tick = client.getTickCount();
 		lastHitTarget = target;
 		thralls.hitsplat(target, tick, hitsplat.getAmount(), config.ignoreThralls(), tracker::hitsplat);
@@ -490,13 +499,21 @@ public class ZeroCounterPlugin extends Plugin implements AttackTracker.Listener
 			thralls.ghostImpact(tick);
 		}
 		if (me == null || actor == null || actor == me || actor != me.getInteracting()
-			|| lastAnimationTick != tick || lastSplashTick == tick
+			|| lastAnimationTick != tick || lastSplashTick == tick || onBoat()
 			|| !actor.hasSpotAnim(SpotanimID.FAILEDSPELL_IMPACT))
 		{
 			return;
 		}
 		lastSplashTick = tick;
 		tracker.splash();
+	}
+
+	/** True while the player stands on a boat: the boat has its own world view. */
+	private boolean onBoat()
+	{
+		Player me = client.getLocalPlayer();
+		WorldView view = me != null ? me.getWorldView() : null;
+		return view != null && !view.isTopLevel();
 	}
 
 	// ------------------------------------------------------------------ counting
